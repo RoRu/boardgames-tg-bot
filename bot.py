@@ -1,11 +1,45 @@
+import datetime
+import sqlite3
+
+db_filepath = "/content/db.sqlite3"
+
+con = sqlite3.connect(db_filepath)
+cur = con.cursor()
+gametable_sql = """
+    CREATE TABLE IF NOT EXISTS saved_games (
+      chat_id integer NOT NULL,
+      game_id text NOT NULL,
+      game_name text,
+      game_desc text,
+      game_genre text,
+      date_added text,
+      CONSTRAINT new_pk PRIMARY KEY (chat_id, game_id))"""
+
+cur.execute(gametable_sql)
+con.close()
+
+
+def add_tuple(chat_id, game_id, game_name, game_desc, game_genre):
+    con = sqlite3.connect(db_filepath)
+    cur = con.cursor()
+    gametable_sql = "INSERT INTO saved_games (chat_id, game_id, game_name, game_desc, game_genre, date_added) VALUES (?, ?, ?, ?, ?, ?)"
+    cur.execute(
+        gametable_sql,
+        (chat_id, game_id, game_name, game_desc, game_genre, datetime.date.today()),
+    )
+    con.commit()
+    con.close()
+
+
 import telebot
-from aiogram.types import (
-    ReplyKeyboardMarkup,
-    KeyboardButton,
-)
+from telebot import types
 
 bot = telebot.TeleBot("5689879860:AAEkJEYdAQ1K3gzVWxMjXfLg0OJq3pK50KY")
 current_genre = ""
+choice1 = ["", "", ""]
+choice2 = ["", "", ""]
+choice3 = ["", "", ""]
+currentpick = []
 
 import json
 import operator
@@ -28,36 +62,60 @@ def clean_data(choice):
             if data[item]["category1"] not in categories:
                 cats[data[item]["category1"]] = []
                 cats[data[item]["category1"]].append(
-                    (data[item]["name"], data[item]["description_preview"])
+                    (
+                        data[item]["id"],
+                        data[item]["name"],
+                        data[item]["description_preview"],
+                    )
                 )
                 categories[data[item]["category1"]] = 1
             else:
                 cats[data[item]["category1"]].append(
-                    (data[item]["name"], data[item]["description_preview"])
+                    (
+                        data[item]["id"],
+                        data[item]["name"],
+                        data[item]["description_preview"],
+                    )
                 )
                 categories[data[item]["category1"]] += 1
         if data[item]["category2"] != None:
             if data[item]["category2"] not in categories:
                 cats[data[item]["category2"]] = []
                 cats[data[item]["category2"]].append(
-                    (data[item]["name"], data[item]["description_preview"])
+                    (
+                        data[item]["id"],
+                        data[item]["name"],
+                        data[item]["description_preview"],
+                    )
                 )
                 categories[data[item]["category2"]] = 1
             else:
                 cats[data[item]["category2"]].append(
-                    (data[item]["name"], data[item]["description_preview"])
+                    (
+                        data[item]["id"],
+                        data[item]["name"],
+                        data[item]["description_preview"],
+                    )
                 )
                 categories[data[item]["category2"]] += 1
         if data[item]["category3"] != None:
             if data[item]["category3"] not in categories:
                 cats[data[item]["category3"]] = []
                 cats[data[item]["category3"]].append(
-                    (data[item]["name"], data[item]["description_preview"])
+                    (
+                        data[item]["id"],
+                        data[item]["name"],
+                        data[item]["description_preview"],
+                    )
                 )
                 categories[data[item]["category3"]] = 1
             else:
                 cats[data[item]["category3"]].append(
-                    (data[item]["name"], data[item]["description_preview"])
+                    (
+                        data[item]["id"],
+                        data[item]["name"],
+                        data[item]["description_preview"],
+                    )
                 )
                 categories[data[item]["category3"]] += 1
 
@@ -87,12 +145,15 @@ def pick_three(main_category):
 def main(maintext, *args):
     top_cat = clean_data("top")
     cats = clean_data("cats")
+    global choice1
+    global choice2
+    global choice3
+    global currentpick
     if "startmessage" in maintext:
         l = []
         for i in top_cat:
             l.append("\n/")
             l.append(i)
-
         text = "".join(l)
         finaltext = (
             "Привет! Выберите одну из категорий, которая больше всего нравится. Чтобы выбрать категорию, нажмите на ее название: "
@@ -106,16 +167,25 @@ def main(maintext, *args):
         b = cats[args[0]][chosen[1]]
         c = cats[args[0]][chosen[2]]
 
+        choice1 = a
+        choice2 = b
+        choice3 = c
+
+        currentpick.append(a)
+        currentpick.append(b)
+        currentpick.append(c)
+
         fulltext = ""
         fulltext = (
             "Выберите игру, которая нравится больше всего: \n\n1. <b><u>"
-            + a[0]
-            + "</u></b>: \n   "
             + a[1]
+            + "</u></b>: \n   "
+            + a[2]
         )
-        fulltext = fulltext + "\n\n2. <b><u>" + b[0] + "</u></b>: \n   " + b[1]
-        fulltext2 = "\n\n3. <b><u>" + c[0] + "</u></b>: \n   " + c[1]
-        return fulltext, fulltext2, a[0], b[0], c[0]
+        fulltext = fulltext + "\n\n2. <b><u>" + b[1] + "</u></b>: \n   " + b[2]
+        fulltext2 = "\n\n3. <b><u>" + c[1] + "</u></b>: \n   " + c[2]
+        return fulltext, fulltext2, a[1], b[1], c[1]
+
     elif "newgenre" in maintext:
         l = []
         for i in top_cat:
@@ -132,7 +202,14 @@ def main(maintext, *args):
         return "Спасибо за игру!"
 
     elif "savegame" in maintext:
-        return "Я все сохранил в базу но пока что не могу показать"
+        if args[0] == choice1[1]:
+            add_tuple(args[2], choice1[0], choice1[1], choice1[2], args[1])
+        elif args[0] == choice2[1]:
+            add_tuple(args[2], choice2[0], choice2[1], choice2[2], args[1])
+        else:
+            add_tuple(args[2], choice3[0], choice3[1], choice3[2], args[1])
+
+        return "Игра добавлена в список желаемого"
 
 
 @bot.message_handler(content_types=["text"])
@@ -152,9 +229,9 @@ def func(message):
     ]
     user_id = message.from_user.id
     global current_genre
-    choice1 = ""
-    choice2 = ""
-    choice3 = ""
+    name1 = ""
+    name2 = ""
+    name3 = ""
     text = str(message.text)
     finaltext = ""
     finaltext2 = ""
@@ -168,10 +245,10 @@ def func(message):
     elif text in game_commands:
         tag = "choosegame"
         current_genre = text
-        finaltext, finaltext2, choice1, choice2, choice3 = main(tag, current_genre)
+        finaltext, finaltext2, name1, name2, name3 = main(tag, current_genre)
     elif text == "Показать еще игры":
         tag = "choosegame"
-        finaltext, finaltext2, choice1, choice2, choice3 = main(tag, current_genre)
+        finaltext, finaltext2, name1, name2, name3 = main(tag, current_genre)
     elif text == "Выбрать жанр":
         tag = "newgenre"
         current_genre = ""
@@ -182,16 +259,17 @@ def func(message):
         finaltext = main(tag)
     else:
         tag = "savegame"
+        finaltext = main(tag, text, current_genre, user_id)
         current_genre = ""
-        finaltext = main(tag)
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    btn1 = KeyboardButton("Завершить сеанс")
-    btn2 = KeyboardButton("Начать")
-    btn3 = KeyboardButton("Выбрать жанр")
-    btn4 = KeyboardButton(choice1)
-    btn5 = KeyboardButton(choice2)
-    btn6 = KeyboardButton(choice3)
-    btn7 = KeyboardButton("Показать еще игры")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    btn1 = types.KeyboardButton("Завершить сеанс")
+    btn2 = types.KeyboardButton("Начать")
+    btn3 = types.KeyboardButton("Выбрать жанр")
+    btn4 = types.KeyboardButton(name1)
+    btn5 = types.KeyboardButton(name2)
+    btn6 = types.KeyboardButton(name3)
+    btn7 = types.KeyboardButton("Показать еще игры")
+    btn8 = types.KeyboardButton
     if text != "Завершить сеанс":
         if current_genre != "":
             markup.add(btn4, btn5, btn6, btn7, btn3)
@@ -220,3 +298,24 @@ def func(message):
 
 
 bot.polling(none_stop=True, interval=0)
+
+# checking database, TODO: remove later
+
+
+db_filepath = "/content/db.sqlite3"
+con = sqlite3.connect(db_filepath)
+cur = con.cursor()
+cur.execute("SELECT * FROM saved_games")
+print(cur.fetchall())
+
+link = "https://api.boardgameatlas.com/api/game/categories?client_id=JLBr5npPhV"
+from urllib.request import urlopen
+
+with urlopen(link) as read_file:
+    data = json.load(read_file)
+
+# print(data)
+
+for item in data["categories"]:
+    if item["name"] == "18XX":
+        print(item["id"])
