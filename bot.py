@@ -1,12 +1,9 @@
-import datetime
 import sqlite3
-from telebot.async_telebot import AsyncTeleBot
-import asyncio
-
+import sqlite3
 
 # путь к файлу базы
 
-db_filepath = "./db.sqlite3"
+db_filepath = "/content/db.sqlite3"
 
 # создаем таблицу, если она еще не существует. в таблице: id чата пользователя, id игры с сайта, имя игры, описание, жанр и дата добавления
 con = sqlite3.connect(db_filepath)
@@ -23,6 +20,7 @@ gametable_sql = """
 
 cur.execute(gametable_sql)
 con.close()
+
 
 # добавление игры определенного пользователя в базу
 
@@ -85,91 +83,200 @@ import telebot
 import re
 from telebot import types
 from telebot import util
+import requests
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-bot = AsyncTeleBot("5689879860:AAEkJEYdAQ1K3gzVWxMjXfLg0OJq3pK50KY")
+bot = telebot.TeleBot("5689879860:AAEkJEYdAQ1K3gzVWxMjXfLg0OJq3pK50KY")
 current_genre = ""
 delgame_id = ""
 tag = ""
+requestchoice = ""
+data = {}
 choice1 = ["", "", ""]
 choice2 = ["", "", ""]
 choice3 = ["", "", ""]
+
 
 # для того чтобы работать напрямую с API сайта, нужно знать id категорий игр,
 # чтобы сразу вытаскивать то, что нам нужно
 
 
-# здесь нужно разобраться с id для доступа, можно быть создать свой
+# в первом try/catch свой client_id для поступа к api, во втором общий client_id к основному сайту
 
 
 def get_categories():
-    link = "https://www.boardgameatlas.com/api/game/categories?client_id=W0AQGbjlZE"
-    from urllib.request import urlopen
+    global requestchoice
+    global data
 
-    with urlopen(link) as read_file:
-        data = json.load(read_file)
-
-    data_ids = {item["name"]: item["id"] for item in data["categories"]}
-    data_ids = {x.replace(" ", "_"): v for x, v in data_ids.items()}
-    data_ids = {x.replace("-", "_"): v for x, v in data_ids.items()}
-    data_ids = {x.replace("/", "or"): v for x, v in data_ids.items()}
-    data_ids = {x.replace("&", "and"): v for x, v in data_ids.items()}
-    data_ids = {x.replace("'", ""): v for x, v in data_ids.items()}
-
-    return data_ids
-
-
-def max_games(id_category):
-    link = (
-        "https://www.boardgameatlas.com/api/search?categories="
-        + str(id_category)
-        + "&client_id=W0AQGbjlZE"
-    )
-    data = {"games": [], "count": 0}
-
-    while data["games"] == []:
+    try:
+        r = requests.get(
+            "https://api.boardgameatlas.com/api/game/categories?client_id=IhRam6jmDV"
+        )
+        r.raise_for_status()
+        link = "https://api.boardgameatlas.com/api/game/categories?client_id=IhRam6jmDV"
         from urllib.request import urlopen
 
         with urlopen(link) as read_file:
             data = json.load(read_file)
-    return len(data["games"])
+        requestchoice = str(1)
+    except requests.exceptions.RequestException as err:
+        print("Bad status code 1")
+
+    if requestchoice == "":
+        try:
+            r = requests.get(
+                "https://www.boardgameatlas.com/api/game/categories?client_id=W0AQGbjlZE"
+            )
+            r.raise_for_status()
+            link = "https://www.boardgameatlas.com/api/game/categories?client_id=W0AQGbjlZE"
+            from urllib.request import urlopen
+
+            with urlopen(link) as read_file:
+                data = json.load(read_file)
+            requestchoice = str(2)
+        except requests.exceptions.RequestException as err:
+            print("Bad status code 2")
+
+    if requestchoice != "":
+        data_ids = {item["name"]: item["id"] for item in data["categories"]}
+        data_ids = {x.replace(" ", "_"): v for x, v in data_ids.items()}
+        data_ids = {x.replace("-", "_"): v for x, v in data_ids.items()}
+        data_ids = {x.replace("/", "or"): v for x, v in data_ids.items()}
+        data_ids = {x.replace("&", "and"): v for x, v in data_ids.items()}
+        data_ids = {x.replace("'", ""): v for x, v in data_ids.items()}
+        return data_ids
+    else:
+        return data
+
+
+def max_games(id_category):
+    global data
+    global requestchoice
+
+    try:
+        r = requests.get(
+            "https://api.boardgameatlas.com/api/search?categories="
+            + str(id_category)
+            + "&client_id=IhRam6jmDV"
+        )
+        r.raise_for_status()
+        link = (
+            "https://api.boardgameatlas.com/api/search?categories="
+            + str(id_category)
+            + "&client_id=IhRam6jmDV"
+        )
+        data = {"games": [], "count": 0}
+
+        while data["games"] == []:
+            from urllib.request import urlopen
+
+            with urlopen(link) as read_file:
+                data = json.load(read_file)
+        requestchoice = str(1)
+    except requests.exceptions.RequestException as err:
+        print("Bad status code 1")
+
+    if requestchoice == "":
+        try:
+            r = requests.get(
+                "https://www.boardgameatlas.com/api/search?categories="
+                + str(id_category)
+                + "&client_id=W0AQGbjlZE"
+            )
+            r.raise_for_status()
+            link = (
+                "https://www.boardgameatlas.com/api/search?categories="
+                + str(id_category)
+                + "&client_id=W0AQGbjlZE"
+            )
+            data = {"games": [], "count": 0}
+
+            while data["games"] == []:
+                from urllib.request import urlopen
+
+                with urlopen(link) as read_file:
+                    data = json.load(read_file)
+            requestchoice = str(2)
+        except requests.exceptions.RequestException as err:
+            print("Bad status code 2")
+
+    if requestchoice != "":
+        return len(data["games"])
+    else:
+        return 0
 
 
 def get_n_games(id_category, n):
     gameset = []
-    gamesetids = []
-    link = (
-        "https://www.boardgameatlas.com/api/search?categories="
-        + str(id_category)
-        + "&client_id=W0AQGbjlZE"
-    )
-    data = {"games": [], "count": 0}
+    global data
+    global requestchoice
 
-    while data["games"] == []:
-        from urllib.request import urlopen
+    try:
+        r = requests.get(
+            "https://api.boardgameatlas.com/api/search?categories="
+            + str(id_category)
+            + "&client_id=IhRam6jmDV"
+        )
+        r.raise_for_status()
+        link = (
+            "https://api.boardgameatlas.com/api/search?categories="
+            + str(id_category)
+            + "&client_id=IhRam6jmDV"
+        )
+        data = {"games": [], "count": 0}
 
-        with urlopen(link) as read_file:
-            data = json.load(read_file)
+        while data["games"] == []:
+            from urllib.request import urlopen
 
-    sampling = random.sample(data["games"], n)
-    for i in range(len(sampling)):
-        if sampling[i]["description"] != "":
-            gameset.append(
-                {
-                    "game_id": sampling[i]["id"],
-                    "game_name": sampling[i]["name"],
-                    "game_desc": re.sub("<.*?>", "", sampling[i]["description"]),
-                }
+            with urlopen(link) as read_file:
+                data = json.load(read_file)
+        requestchoice = str(1)
+    except requests.exceptions.RequestException as err:
+        print("Bad status code 1")
+
+    if requestchoice == "":
+        try:
+            r = requests.get(
+                "https://www.boardgameatlas.com/api/search?categories="
+                + str(id_category)
+                + "&client_id=W0AQGbjlZE"
             )
-        else:
-            gameset.append(
-                {
-                    "game_id": sampling[i]["id"],
-                    "game_name": sampling[i]["name"],
-                    "game_desc": "No desription mentioned",
-                }
+            r.raise_for_status()
+            link = (
+                "https://www.boardgameatlas.com/api/search?categories="
+                + str(id_category)
+                + "&client_id=W0AQGbjlZE"
             )
+            data = {"games": [], "count": 0}
+
+            while data["games"] == []:
+                from urllib.request import urlopen
+
+                with urlopen(link) as read_file:
+                    data = json.load(read_file)
+            requestchoice = str(2)
+        except requests.exceptions.RequestException as err:
+            print("Bad status code 2")
+    if requestchoice != "":
+        sampling = random.sample(data["games"], n)
+        for i in range(len(sampling)):
+            if sampling[i]["description"] != "":
+                gameset.append(
+                    {
+                        "game_id": sampling[i]["id"],
+                        "game_name": sampling[i]["name"],
+                        "game_desc": re.sub("<.*?>", "", sampling[i]["description"]),
+                    }
+                )
+            else:
+                gameset.append(
+                    {
+                        "game_id": sampling[i]["id"],
+                        "game_name": sampling[i]["name"],
+                        "game_desc": "No desription mentioned",
+                    }
+                )
 
     return gameset
 
@@ -178,19 +285,23 @@ def get_n_games(id_category, n):
 
 
 def category_text(current_page):
+    global requestchoice
     l = []
     count = 0
     categories = get_categories()
-    for i in categories:
-        if count in range((current_page - 1) * 15, current_page * 15 - 1):
-            l.append("\n/")
-            l.append(i)
-        count = count + 1
-        text = "".join(l)
-        finaltext = (
-            "Выберите одну из категорий, которая больше всего нравится. Чтобы выбрать категорию, нажмите на ее название: "
-            + text
-        )
+    if requestchoice != "":
+        for i in categories:
+            if count in range((current_page - 1) * 15, current_page * 15 - 1):
+                l.append("\n/")
+                l.append(i)
+            count = count + 1
+            text = "".join(l)
+            finaltext = (
+                "Выберите одну из категорий, которая больше всего нравится. Чтобы выбрать категорию, нажмите на ее название: "
+                + text
+            )
+    else:
+        finaltext = "Хм, кажется, сайт сейчас перегружен, и я не могу получить информацию. Пожалуйста, вернитесь позже"
 
     return finaltext
 
@@ -199,11 +310,11 @@ def category_text(current_page):
 
 
 def main_games_query(maintext, *args):
-
     global choice1
     global choice2
     global choice3
     global delgame_id
+    global requestchoice
     if "startmessage" in maintext:
         text = category_text(1)
         finaltext = "Привет! " + text
@@ -211,74 +322,86 @@ def main_games_query(maintext, *args):
 
     elif "choosegame" in maintext:
         categories = get_categories()
-        category_id = categories[args[0]]
-        fulltext = ""
-        fulltext2 = ""
-        fulltext3 = ""
-        if max_games(category_id) == 1:
-            chosen = get_n_games(category_id, 1)
-            a = chosen[0]
-            choice1 = a
-            fulltext = (
-                "Выберите игру, которая нравится больше всего: \n\n1. <b><u>"
-                + a["game_name"]
-                + "</u></b>: \n   "
-                + a["game_desc"]
-            )
-            return fulltext, fulltext2, fulltext3, a["game_name"], "no", "no"
-        elif max_games(category_id) == 2:
-            chosen = get_n_games(category_id, 2)
-            a = chosen[0]
-            b = chosen[1]
-            choice1 = a
-            choice2 = b
-            fulltext = (
-                "Выберите игру, которая нравится больше всего: \n\n1. <b><u>"
-                + a["game_name"]
-                + "</u></b>: \n   "
-                + a["game_desc"]
-                + "\n\n"
-            )
-            fulltext2 = (
-                "\2. <b><u>" + b["game_name"] + "</u></b>: \n   " + b["game_desc"]
-            )
-            return fulltext, fulltext2, fulltext3, a["game_name"], b["game_name"], "no"
-        else:
-            chosen = get_n_games(category_id, 3)
-            a = chosen[0]
-            b = chosen[1]
-            c = chosen[2]
 
-            choice1 = a
-            choice2 = b
-            choice3 = c
-
+        if requestchoice != "":
+            category_id = categories[args[0]]
             fulltext = ""
-            fulltext = (
-                "Выберите игру, которая нравится больше всего: \n\n1. <b><u>"
-                + a["game_name"]
-                + "</u></b>: \n   "
-                + a["game_desc"]
-                + "\n\n"
-            )
-            fulltext2 = (
-                "2. <b><u>"
-                + b["game_name"]
-                + "</u></b>: \n   "
-                + b["game_desc"]
-                + "\n\n"
-            )
-            fulltext3 = (
-                "3. <b><u>" + c["game_name"] + "</u></b>: \n   " + c["game_desc"]
-            )
-            return (
-                fulltext,
-                fulltext2,
-                fulltext3,
-                a["game_name"],
-                b["game_name"],
-                c["game_name"],
-            )
+            fulltext2 = ""
+            fulltext3 = ""
+            if max_games(category_id) == 1:
+                chosen = get_n_games(category_id, 1)
+                a = chosen[0]
+                choice1 = a
+                fulltext = (
+                    "Выберите игру, которая нравится больше всего: \n\n1. <b><u>"
+                    + a["game_name"]
+                    + "</u></b>: \n   "
+                    + a["game_desc"]
+                )
+                return fulltext, fulltext2, fulltext3, a["game_name"], "no", "no"
+            elif max_games(category_id) == 2:
+                chosen = get_n_games(category_id, 2)
+                a = chosen[0]
+                b = chosen[1]
+                choice1 = a
+                choice2 = b
+                fulltext = (
+                    "Выберите игру, которая нравится больше всего: \n\n1. <b><u>"
+                    + a["game_name"]
+                    + "</u></b>: \n   "
+                    + a["game_desc"]
+                    + "\n\n"
+                )
+                fulltext2 = (
+                    "\2. <b><u>" + b["game_name"] + "</u></b>: \n   " + b["game_desc"]
+                )
+                return (
+                    fulltext,
+                    fulltext2,
+                    fulltext3,
+                    a["game_name"],
+                    b["game_name"],
+                    "no",
+                )
+            else:
+                chosen = get_n_games(category_id, 3)
+                a = chosen[0]
+                b = chosen[1]
+                c = chosen[2]
+
+                choice1 = a
+                choice2 = b
+                choice3 = c
+
+                fulltext = ""
+                fulltext = (
+                    "Выберите игру, которая нравится больше всего: \n\n1. <b><u>"
+                    + a["game_name"]
+                    + "</u></b>: \n   "
+                    + a["game_desc"]
+                    + "\n\n"
+                )
+                fulltext2 = (
+                    "2. <b><u>"
+                    + b["game_name"]
+                    + "</u></b>: \n   "
+                    + b["game_desc"]
+                    + "\n\n"
+                )
+                fulltext3 = (
+                    "3. <b><u>" + c["game_name"] + "</u></b>: \n   " + c["game_desc"]
+                )
+                return (
+                    fulltext,
+                    fulltext2,
+                    fulltext3,
+                    a["game_name"],
+                    b["game_name"],
+                    c["game_name"],
+                )
+        else:
+            fulltext = "Хм, кажется, сайт сейчас перегружен, и я не могу получить информацию. Пожалуйста, вернитесь позже"
+            return fulltext, "", "", "", "", ""
 
     elif "newgenre" in maintext:
         finaltext = category_text(1)
@@ -292,9 +415,7 @@ def main_games_query(maintext, *args):
         iter = 1
         fulltext = "Для того, чтобы подробнее посмотреть на описание игры, нажмите на ее номер. \nНа данный момент были сохранены следующие игры:\n\n"
         for item in gamelist:
-            fulltext = (
-                fulltext + "/" + str(iter) + ". <b><u>" + item[1] + "</u></b> \n \n "
-            )
+            fulltext = fulltext + "/" + str(iter) + ". <b><u>" + item[1] + "</u></b> \n"
             iter = int(iter) + 1
 
         return fulltext
@@ -342,25 +463,6 @@ def main_games_query(maintext, *args):
             )
 
         return "Игра добавлена в список желаемого"
-
-
-# определяет как отображать сохраненные игры в зависимости от выбранной страницы
-
-
-def game_text(current_page, chat_id):
-    l = []
-    count = 1
-    iter = 1
-    gamelist = show_person(chat_id)
-    fulltext = "Для того, чтобы подробнее посмотреть на описание игры, нажмите на ее номер. \nНа данный момент были сохранены следующие игры:\n\n"
-
-    for item in gamelist:
-        if count in range((current_page - 1) * 10 + 1, current_page * 10 + 1):
-            fulltext = fulltext + "/" + str(iter) + ". " + item[1] + "\n\n"
-        iter = int(iter) + 1
-        count = count + 1
-
-    return fulltext
 
 
 # определяет, какую инлайн клавиатуру рисовать в обновленном сообщении для списка
@@ -417,56 +519,6 @@ def catkb_markup(current_place):
         markup.add(buttbefore2, butt8, butt9, butt10sp, butt11)
     else:
         markup.add(buttbefore2, butt8, butt9, butt10, butt11sp)
-    return markup
-
-
-# определяет, какую инлайн клавиатуру рисовать в обновленном сообщении для списка сохраненных игр
-def gamekb_markup(current_place, chat_id):
-    gamelist = show_person(chat_id)
-    if len(gamelist) % 10 != 0:
-        numpages = len(gamelist) // 10 + 1
-    else:
-        numpages = len(gamelist) // 10
-    markup = InlineKeyboardMarkup()
-    markup.row_width = numpages
-    numbeforeafters = numpages // 3 - 1
-    btns = []
-    bas = []
-    for i in range(numpages):
-        btns.append(InlineKeyboardButton(str(i + 1), callback_data="game" + str(i + 1)))
-        btns.append(
-            InlineKeyboardButton(
-                "•" + str(i + 1) + "•", callback_data="game" + str(i + 1)
-            )
-        )
-    for i in range(numbeforeafters):
-        bas.append(
-            InlineKeyboardButton(">>", callback_data="gamenext" + str(3 * (i + 2) - 1))
-        )
-        if i == 0:
-            bas.append(InlineKeyboardButton("<<", callback_data="gamebefore" + str(1)))
-        else:
-            bas.append(
-                InlineKeyboardButton(
-                    "<<", callback_data="gamebefore" + str(3 * (i + 1) - 1)
-                )
-            )
-
-    if numpages > 1:
-        for i in range(current_place - 1):
-            markup.add(
-                InlineKeyboardButton(str(i + 1), callback_data="game" + str(i + 1))
-            )
-        markup.add(
-            InlineKeyboardButton(
-                "•" + str(current_place) + "•",
-                callback_data="game" + str(current_place),
-            )
-        )
-        for i in range(current_place, numpages):
-            markup.add(
-                InlineKeyboardButton(str(i + 1), callback_data="game" + str(i + 1))
-            )
     return markup
 
 
@@ -580,31 +632,6 @@ def callback_query(call):
             text=category_text(5),
             reply_markup=[catkb_markup(5)],
         )
-    elif "game" in call.data:
-        if "gamenext" in call.data:
-            number = int(call.data[9:])
-            bot.edit_message_text(
-                chat_id=call.message.chat.id,
-                message_id=call.message.message_id,
-                text=game_text(number, call.message.chat.id),
-                reply_markup=[gamekb_markup(number, call.message.chat.id)],
-            )
-        elif "gamebefore" in call.data:
-            number = int(call.data[11:])
-            bot.edit_message_text(
-                chat_id=call.message.chat.id,
-                message_id=call.message.message_id,
-                text=game_text(number, call.message.chat.id),
-                reply_markup=[gamekb_markup(number, call.message.chat.id)],
-            )
-        else:
-            number = int(call.data[4:])
-            bot.edit_message_text(
-                chat_id=call.message.chat.id,
-                message_id=call.message.message_id,
-                text=game_text(number, call.message.chat.id),
-                reply_markup=[gamekb_markup(number, call.message.chat.id)],
-            )
 
 
 @bot.message_handler(content_types=["text"])
@@ -612,6 +639,7 @@ def func(message):
     user_id = message.from_user.id
     global current_genre
     global tag
+    global requestchoice
     name1 = ""
     name2 = ""
     name3 = ""
@@ -625,6 +653,9 @@ def func(message):
         tag = "startmessage"
         current_genre = ""
         finaltext = main_games_query(tag)
+        if requestchoice == "":
+            current_genre = ""
+            tag = "cantconnect"
     elif "/" in text:
         text = text.replace("/", "")
         if tag == "showgames":
@@ -636,22 +667,31 @@ def func(message):
             finaltext, finaltext2, finaltext3, name1, name2, name3 = main_games_query(
                 tag, current_genre
             )
+            if requestchoice == "":
+                current_genre = ""
+                tag = "cantconnect"
     elif text == "Показать еще игры":
         tag = "choosegame"
         finaltext, finaltext2, finaltext3, name1, name2, name3 = main_games_query(
             tag, current_genre
         )
+        if requestchoice == "":
+            current_genre = ""
+            tag = "cantconnect"
     elif text == "Выбрать жанр":
         tag = "newgenre"
         current_genre = ""
         finaltext = main_games_query(tag)
+        if requestchoice == "":
+            current_genre = ""
+            tag = "cantconnect"
     elif text == "Завершить сеанс":
         tag = "end"
         current_genre = ""
         finaltext = main_games_query(tag)
     elif text == "Показать сохраненные игры":
         tag = "showgames"
-        finaltext = game_text(1, user_id)
+        finaltext = main_games_query(tag, user_id)
 
     elif text == "Удалить игру":
         tag = "deletegame"
@@ -693,17 +733,6 @@ def func(message):
         bot.send_message(message.chat.id, finaltext, reply_markup=[catkb_markup(1)])
     elif tag == "newgenre":
         bot.send_message(message.chat.id, finaltext, reply_markup=[catkb_markup(1)])
-    elif tag == "showgames":
-        if len(show_person(user_id)) == 2:
-            bot.send_message(
-                message.chat.id, finaltext, reply_markup=markup, parse_mode="html"
-            )
-        else:
-            bot.send_message(
-                message.chat.id,
-                finaltext,
-                reply_markup=[gamekb_markup(1, message.chat.id)],
-            )
     else:
         if len(str(finaltext) + str(finaltext2) + str(finaltext3)) > 4096:
             if len(str(finaltext) + str(finaltext2)) > 4096:
@@ -723,38 +752,44 @@ def func(message):
                             reply_markup=markup,
                             parse_mode="html",
                         )
-                if len(str(finaltext2)) < 4096:
-                    bot.send_message(
-                        message.chat.id,
-                        finaltext2,
-                        reply_markup=markup,
-                        parse_mode="html",
-                    )
-                else:
-                    splitted_text = util.smart_split(finaltext2, chars_per_string=3000)
-                    for text in splitted_text:
+                if finaltext2 != "":
+                    if len(str(finaltext2)) < 4096:
                         bot.send_message(
                             message.chat.id,
-                            text,
+                            finaltext2,
                             reply_markup=markup,
                             parse_mode="html",
                         )
-                if len(str(finaltext3)) < 4096:
-                    bot.send_message(
-                        message.chat.id,
-                        finaltext3,
-                        reply_markup=markup,
-                        parse_mode="html",
-                    )
-                else:
-                    splitted_text = util.smart_split(finaltext3, chars_per_string=3000)
-                    for text in splitted_text:
+                    else:
+                        splitted_text = util.smart_split(
+                            finaltext2, chars_per_string=3000
+                        )
+                        for text in splitted_text:
+                            bot.send_message(
+                                message.chat.id,
+                                text,
+                                reply_markup=markup,
+                                parse_mode="html",
+                            )
+                if finaltext3 != "":
+                    if len(str(finaltext3)) < 4096:
                         bot.send_message(
                             message.chat.id,
-                            text,
+                            finaltext3,
                             reply_markup=markup,
                             parse_mode="html",
                         )
+                    else:
+                        splitted_text = util.smart_split(
+                            finaltext3, chars_per_string=3000
+                        )
+                        for text in splitted_text:
+                            bot.send_message(
+                                message.chat.id,
+                                text,
+                                reply_markup=markup,
+                                parse_mode="html",
+                            )
 
             else:
                 bot.send_message(
@@ -763,9 +798,13 @@ def func(message):
                     reply_markup=markup,
                     parse_mode="html",
                 )
-                bot.send_message(
-                    message.chat.id, finaltext3, reply_markup=markup, parse_mode="html"
-                )
+                if finaltext3 != "":
+                    bot.send_message(
+                        message.chat.id,
+                        finaltext3,
+                        reply_markup=markup,
+                        parse_mode="html",
+                    )
         else:
             bot.send_message(
                 message.chat.id,
@@ -775,5 +814,4 @@ def func(message):
             )
 
 
-# bot.polling(none_stop=True, interval=0)
-asyncio.run(bot.polling(none_stop=True, interval=0))
+bot.polling(none_stop=True, interval=0)
