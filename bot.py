@@ -29,13 +29,13 @@ gametable_sql = """
       CONSTRAINT new_pk PRIMARY KEY (chat_id, game_id))"""
 
 cur.execute(gametable_sql)
-con.close()
+
 req_session = CachedSession(
     "db.sqlite3",
     backend="sqlite",
     serializer="json",
     allowable_codes=(200,),
-    allowable_methods=("GET"),
+    allowable_methods="GET",
     stale_if_error=True,
 )
 
@@ -44,7 +44,8 @@ req_session = CachedSession(
 def add_tuple(chat_id, game_id, game_name, game_desc, game_genre):
     con = sqlite3.connect(db_filepath)
     cur = con.cursor()
-    gametable_sql = "INSERT INTO saved_games (chat_id, game_id, game_name, game_desc, game_genre, date_added) VALUES (?, ?, ?, ?, ?, ?)"
+    gametable_sql = "INSERT INTO saved_games (chat_id, game_id, game_name, game_desc, game_genre, date_added) VALUES " \
+                    "(?, ?, ?, ?, ?, ?) "
     cur.execute(
         gametable_sql,
         (chat_id, game_id, game_name, game_desc, game_genre, datetime.date.today()),
@@ -62,6 +63,7 @@ def show_person(cur_chat_id):
     results = cur.fetchall()
     con.close()
     return results
+
 
 # удаление игры из базы для определенного пользователя
 def del_game(cur_chat_id, cur_game_id):
@@ -242,8 +244,9 @@ def category_text(current_page):
             count = count + 1
             text = "".join(l)
             finaltext = (
-                "Выберите одну из категорий, которая больше всего нравится. Чтобы выбрать категорию, нажмите на ее название: "
-                + text
+                "Выберите одну из категорий, которая больше всего нравится. "
+                "Чтобы выбрать категорию, нажмите на "
+                "ее название: " + text
             )
     else:
         finaltext = "Хм, кажется, сайт сейчас перегружен, и я не могу получить информацию. Пожалуйста, вернитесь позже"
@@ -343,7 +346,10 @@ def main_games_query(maintext, *args):
                     c["game_name"],
                 )
         else:
-            fulltext = "Хм, кажется, сайт сейчас перегружен, и я не могу получить информацию. Пожалуйста, вернитесь позже"
+            fulltext = (
+                "Хм, кажется, сайт сейчас перегружен, и я не могу получить информацию. "
+                "Пожалуйста, вернитесь позже"
+            )
             return fulltext, "", "", "", "", ""
 
     elif "newgenre" in maintext:
@@ -356,7 +362,10 @@ def main_games_query(maintext, *args):
     elif "showgames" in maintext:
         gamelist = show_person(args[0])
         iter = 1
-        fulltext = "Для того, чтобы подробнее посмотреть на описание игры, нажмите на ее номер. \nНа данный момент были сохранены следующие игры:\n\n"
+        fulltext = (
+            "Для того, чтобы подробнее посмотреть на описание игры, нажмите на ее номер. "
+            "\nНа данный момент были сохранены следующие игры:\n\n"
+        )
         for item in gamelist:
             fulltext = fulltext + "/" + str(iter) + ". <b><u>" + item[1] + "</u></b> \n"
             iter = int(iter) + 1
@@ -412,165 +421,53 @@ def main_games_query(maintext, *args):
 def catkb_markup(current_place):
     markup = InlineKeyboardMarkup()
     markup.row_width = 5
-    butt1 = InlineKeyboardButton("1", callback_data="cat1")
-    butt2 = InlineKeyboardButton("2", callback_data="cat2")
-    butt3 = InlineKeyboardButton("3", callback_data="cat3")
-    butt4 = InlineKeyboardButton("4", callback_data="cat4")
-    butt5 = InlineKeyboardButton("5", callback_data="cat5")
-    butt6 = InlineKeyboardButton("6", callback_data="cat6")
-    butt7 = InlineKeyboardButton("7", callback_data="cat7")
-    butt8 = InlineKeyboardButton("8", callback_data="cat8")
-    butt9 = InlineKeyboardButton("9", callback_data="cat9")
-    butt10 = InlineKeyboardButton("10", callback_data="cat10")
-    butt11 = InlineKeyboardButton("11", callback_data="cat11")
-    butt1sp = InlineKeyboardButton("•1•", callback_data="cat1")
-    butt2sp = InlineKeyboardButton("•2•", callback_data="cat2")
-    butt3sp = InlineKeyboardButton("•3•", callback_data="cat3")
-    butt4sp = InlineKeyboardButton("•4•", callback_data="cat4")
-    butt5sp = InlineKeyboardButton("•5•", callback_data="cat5")
-    butt6sp = InlineKeyboardButton("•6•", callback_data="cat6")
-    butt7sp = InlineKeyboardButton("•7•", callback_data="cat7")
-    butt8sp = InlineKeyboardButton("•8•", callback_data="cat8")
-    butt9sp = InlineKeyboardButton("•9•", callback_data="cat9")
-    butt10sp = InlineKeyboardButton("•10•", callback_data="cat10")
-    butt11sp = InlineKeyboardButton("•11•", callback_data="cat11")
-    buttnext = InlineKeyboardButton(">>", callback_data="catnext")
-    buttnext2 = InlineKeyboardButton(">>", callback_data="catnext2")
-    buttbefore = InlineKeyboardButton("<<", callback_data="catbefore")
-    buttbefore2 = InlineKeyboardButton("<<", callback_data="catbefore2")
+    button_arr = [
+        InlineKeyboardButton(str(i), callback_data=str(i)) for i in range(0, 12)
+    ]
+    chosen_button_arr = [
+        InlineKeyboardButton(f"•{i}•", callback_data=str(i)) for i in range(0, 12)
+    ]
+    button_to_first = InlineKeyboardButton("<<<", callback_data="0")
+    button_to_last = InlineKeyboardButton(">>>", callback_data="12")
     if current_place == 1:
-        markup.add(butt1sp, butt2, butt3, butt4, buttnext)
-    elif current_place == 2:
-        markup.add(butt1, butt2sp, butt3, butt4, buttnext)
-    elif current_place == 3:
-        markup.add(butt1, butt2, butt3sp, butt4, buttnext)
-    elif current_place == 4:
-        markup.add(butt1, butt2, butt3, butt4sp, buttnext)
-    elif current_place == 5:
-        markup.add(buttbefore, butt5sp, butt6, butt7, buttnext2)
-    elif current_place == 6:
-        markup.add(buttbefore, butt5, butt6sp, butt7, buttnext2)
-    elif current_place == 7:
-        markup.add(buttbefore, butt5, butt6, butt7sp, buttnext2)
-    elif current_place == 8:
-        markup.add(buttbefore2, butt8sp, butt9, butt10, butt11)
-    elif current_place == 9:
-        markup.add(buttbefore2, butt8, butt9sp, butt10, butt11)
-    elif current_place == 10:
-        markup.add(buttbefore2, butt8, butt9, butt10sp, butt11)
+        markup.add(
+            chosen_button_arr[1],
+            button_arr[2],
+            button_arr[3],
+            button_to_last,
+        )
+    elif current_place in range(2, 11):
+        markup.add(
+            button_to_first,
+            button_arr[current_place - 1],
+            chosen_button_arr[current_place],
+            button_arr[current_place + 1],
+            button_to_last,
+        )
     else:
-        markup.add(buttbefore2, butt8, butt9, butt10, butt11sp)
+        markup.add(
+            button_to_first,
+            button_arr[current_place - 2],
+            button_arr[current_place - 1],
+            chosen_button_arr[current_place],
+        )
     return markup
 
 
 # изменение сообщения при выборе страницы на инлайн клавиатуре
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    if call.data == "cat1":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(1),
-            reply_markup=[catkb_markup(1)],
-        )
-    elif call.data == "cat2":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(2),
-            reply_markup=[catkb_markup(2)],
-        )
-    elif call.data == "cat3":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(3),
-            reply_markup=[catkb_markup(3)],
-        )
-    elif call.data == "cat4":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(4),
-            reply_markup=[catkb_markup(4)],
-        )
-    elif call.data == "cat5":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(5),
-            reply_markup=[catkb_markup(5)],
-        )
-    elif call.data == "cat6":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(6),
-            reply_markup=[catkb_markup(6)],
-        )
-    elif call.data == "cat7":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(7),
-            reply_markup=[catkb_markup(7)],
-        )
-    elif call.data == "cat8":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(8),
-            reply_markup=[catkb_markup(8)],
-        )
-    elif call.data == "cat9":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(9),
-            reply_markup=[catkb_markup(9)],
-        )
-    elif call.data == "cat10":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(10),
-            reply_markup=[catkb_markup(10)],
-        )
-    elif call.data == "cat11":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(11),
-            reply_markup=[catkb_markup(11)],
-        )
-    elif call.data == "catnext":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(5),
-            reply_markup=[catkb_markup(5)],
-        )
-    elif call.data == "catbefore":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(1),
-            reply_markup=[catkb_markup(1)],
-        )
-    elif call.data == "catnext2":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(8),
-            reply_markup=[catkb_markup(8)],
-        )
-    elif call.data == "catbefore2":
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=category_text(5),
-            reply_markup=[catkb_markup(5)],
-        )
+    page = int(call.data)
+    if int(call.data) == 0:
+        page = 1
+    elif int(call.data) == 12:
+        page = 11
+    bot.edit_message_text(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        text=category_text(page),
+        reply_markup=[catkb_markup(page)],
+    )
 
 
 @bot.message_handler(content_types=["text"])
@@ -641,7 +538,6 @@ def func(message):
         current_genre = ""
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     btn1 = types.KeyboardButton("Завершить сеанс")
-    btn2 = types.KeyboardButton("Начать")
     btn3 = types.KeyboardButton("Выбрать жанр")
     btn4 = types.KeyboardButton(name1)
     btn5 = types.KeyboardButton(name2)

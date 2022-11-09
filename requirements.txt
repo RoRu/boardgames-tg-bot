@@ -1,4 +1,4 @@
-pytelegrambotapi==4.7.0
-aiogram==2.22.2
+pytelegrambotapi==4.7.1
+aiogram==2.23.1
 requests
 requests-cache
