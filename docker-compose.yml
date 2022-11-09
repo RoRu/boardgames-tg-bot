@@ -1,0 +1,16 @@
+services:
+  bot:
+    build: .
+    cap_drop:
+      - ALL
+    user: 'python'
+    read_only: true
+    environment:
+      DB_PATH: '/home/python/sqlite/db.sqlite3'
+      BOT_TOKEN: ${BOT_TOKEN?}
+      API_TOKEN: ${API_TOKEN?}
+    volumes:
+      - type: bind
+        source: ./sqlite/
+        target: /home/python/sqlite
+        read_only: false

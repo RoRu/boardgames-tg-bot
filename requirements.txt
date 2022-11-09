@@ -1,4 +1,6 @@
 pytelegrambotapi==4.7.1
 aiogram==2.23.1
-requests
-requests-cache
+aiohttp
+aiohttp-client-cache
+aiosqlite
+envparse
