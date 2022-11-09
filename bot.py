@@ -15,7 +15,7 @@ from telebot.async_telebot import AsyncTeleBot
 
 # путь к файлу базы
 
-db_filepath = env.str("DB_PATH", default="./db.sqlite3")
+db_filepath = env.str("DB_PATH", default="./sqlite/db.sqlite3")
 
 # создаем таблицу, если она еще не существует.
 # в таблице: id чата пользователя, id игры с сайта, имя игры, описание, жанр и дата добавления
@@ -45,7 +45,7 @@ fallback_api_token = "W0AQGbjlZE"
 
 
 # добавление игры определенного пользователя в базу
-async def add_tuple(chat_id, game_id, game_name, game_desc, game_genre):
+async def add_game(chat_id, game_id, game_name, game_desc, game_genre):
     query = (
         "INSERT INTO saved_games (chat_id, game_id, game_name, game_desc, game_genre, date_added) VALUES "
         "(?, ?, ?, ?, ?, ?) "
@@ -219,7 +219,7 @@ async def get_n_games(id_category, n):
                     {
                         "game_id": sampling[i]["id"],
                         "game_name": sampling[i]["name"],
-                        "game_desc": "No desription mentioned",
+                        "game_desc": "No description provided",
                     }
                 )
 
@@ -387,7 +387,7 @@ async def main_games_query(maintext, *args):
             if i[1] == args[0]:
                 return "Игра уже была сохранена"
         if args[0] == choice1["game_name"]:
-            await add_tuple(
+            await add_game(
                 args[2],
                 choice1["game_id"],
                 choice1["game_name"],
@@ -395,7 +395,7 @@ async def main_games_query(maintext, *args):
                 args[1],
             )
         elif args[0] == choice2["game_name"]:
-            await add_tuple(
+            await add_game(
                 args[2],
                 choice2["game_id"],
                 choice2["game_name"],
@@ -403,7 +403,7 @@ async def main_games_query(maintext, *args):
                 args[1],
             )
         else:
-            await add_tuple(
+            await add_game(
                 args[2],
                 choice3["game_id"],
                 choice3["game_name"],

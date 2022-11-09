@@ -1,6 +1,7 @@
 services:
   bot:
     build: .
+    image: roruk/cw2-bot
     cap_drop:
       - ALL
     user: 'python'
