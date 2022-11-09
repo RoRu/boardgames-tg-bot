@@ -15,7 +15,7 @@ from telebot.async_telebot import AsyncTeleBot
 
 # путь к файлу базы
 
-db_filepath = env.str("DB_PATH", default='./db.sqlite3')
+db_filepath = env.str("DB_PATH", default="./db.sqlite3")
 
 # создаем таблицу, если она еще не существует.
 # в таблице: id чата пользователя, id игры с сайта, имя игры, описание, жанр и дата добавления
@@ -46,8 +46,10 @@ fallback_api_token = "W0AQGbjlZE"
 
 # добавление игры определенного пользователя в базу
 async def add_tuple(chat_id, game_id, game_name, game_desc, game_genre):
-    query = "INSERT INTO saved_games (chat_id, game_id, game_name, game_desc, game_genre, date_added) VALUES " \
-                    "(?, ?, ?, ?, ?, ?) "
+    query = (
+        "INSERT INTO saved_games (chat_id, game_id, game_name, game_desc, game_genre, date_added) VALUES "
+        "(?, ?, ?, ?, ?, ?) "
+    )
     async with aiosqlite.connect(db_filepath) as con:
         await con.execute(
             query,
@@ -76,13 +78,11 @@ async def del_game(cur_chat_id, cur_game_id):
 
 """# **Бот**"""
 
-bot = AsyncTeleBot(
-    env.str("BOT_TOKEN"), parse_mode="html"
-)
+bot = AsyncTeleBot(env.str("BOT_TOKEN"), parse_mode="html")
 current_genre = ""
 delgame_id = ""
 tag = ""
-requestchoice = ""
+request_choice = ""
 data = {}
 choice1 = ["", "", ""]
 choice2 = ["", "", ""]
@@ -95,28 +95,36 @@ choice3 = ["", "", ""]
 
 # в первом try/catch свой client_id для поступа к api, во втором общий client_id к основному сайту
 async def get_categories():
-    global requestchoice
+    global request_choice
     global data
 
     try:
         data = {}
-        async with CachedSession(cache=http_cache, raise_for_status=True) as req_session:
-            async with req_session.get(f"{base_api}/game/categories?client_id={base_api_token}") as r:
+        async with CachedSession(
+            cache=http_cache, raise_for_status=True
+        ) as req_session:
+            async with req_session.get(
+                f"{base_api}/game/categories?client_id={base_api_token}"
+            ) as r:
                 data = await r.json()
-        requestchoice = str(1)
+        request_choice = str(1)
     except:
         print("Bad status code 1")
 
-    if requestchoice == "":
+    if request_choice == "":
         try:
-            async with CachedSession(cache=http_cache, raise_for_status=True) as req_session:
-                async with req_session.get(f"{fallback_api}/game/categories?client_id={fallback_api_token}") as r:
+            async with CachedSession(
+                cache=http_cache, raise_for_status=True
+            ) as req_session:
+                async with req_session.get(
+                    f"{fallback_api}/game/categories?client_id={fallback_api_token}"
+                ) as r:
                     data = await r.json()
-            requestchoice = str(2)
+            request_choice = str(2)
         except aiohttp.ClientError:
             print("Bad status code 2")
 
-    if requestchoice != "":
+    if request_choice != "":
         data_ids = {item["name"]: item["id"] for item in data["categories"]}
         data_ids = {x.replace(" ", "_"): v for x, v in data_ids.items()}
         data_ids = {x.replace("-", "_"): v for x, v in data_ids.items()}
@@ -130,31 +138,36 @@ async def get_categories():
 
 async def max_games(id_category):
     global data
-    global requestchoice
+    global request_choice
 
     data = {"games": [], "count": 0}
     try:
-        async with CachedSession(cache=http_cache, raise_for_status=True) as req_session:
-            async with req_session.get(f"{base_api}/search?categories={id_category}&client_id={base_api_token}") as r:
-                while not data["games"]:
-                    data = await r.json()
+        async with CachedSession(
+            cache=http_cache, raise_for_status=True
+        ) as req_session:
+            async with req_session.get(
+                f"{base_api}/search?categories={id_category}&client_id={base_api_token}"
+            ) as r:
+                data = await r.json()
 
-        requestchoice = str(1)
+        request_choice = str(1)
     except aiohttp.ClientError:
         print("Bad status code 1")
 
-    if requestchoice == "":
+    if request_choice == "":
         try:
-            async with CachedSession(cache=http_cache, raise_for_status=True) as req_session:
+            async with CachedSession(
+                cache=http_cache, raise_for_status=True
+            ) as req_session:
                 async with req_session.get(
-                        f"{fallback_api}/search?categories={id_category}&client_id={fallback_api_token}") as r:
-                    while not data["games"]:
-                        data = await r.json()
-            requestchoice = str(2)
+                    f"{fallback_api}/search?categories={id_category}&client_id={fallback_api_token}"
+                ) as r:
+                    data = await r.json()
+            request_choice = str(2)
         except aiohttp.ClientError:
             print("Bad status code 2")
 
-    if requestchoice != "":
+    if request_choice != "":
         return len(data["games"])
 
     return 0
@@ -163,29 +176,34 @@ async def max_games(id_category):
 async def get_n_games(id_category, n):
     gameset = []
     global data
-    global requestchoice
+    global request_choice
 
     try:
-        async with CachedSession(cache=http_cache, raise_for_status=True) as req_session:
-            async with req_session.get(f"{base_api}/search?categories={id_category}&client_id={base_api_token}") as r:
-                while not data["games"]:
-                    data = await r.json()
+        async with CachedSession(
+            cache=http_cache, raise_for_status=True
+        ) as req_session:
+            async with req_session.get(
+                f"{base_api}/search?categories={id_category}&client_id={base_api_token}"
+            ) as r:
+                data = await r.json()
 
-        requestchoice = str(1)
+        request_choice = str(1)
     except aiohttp.ClientError:
         print("Bad status code 1")
 
-    if requestchoice == "":
+    if request_choice == "":
         try:
-            async with CachedSession(cache=http_cache, raise_for_status=True) as req_session:
+            async with CachedSession(
+                cache=http_cache, raise_for_status=True
+            ) as req_session:
                 async with req_session.get(
-                        f"{fallback_api}/search?categories={id_category}&client_id={fallback_api_token}") as r:
-                    while not data["games"]:
-                        data = await r.json()
-                requestchoice = str(2)
+                    f"{fallback_api}/search?categories={id_category}&client_id={fallback_api_token}"
+                ) as r:
+                    data = await r.json()
+                request_choice = str(2)
         except aiohttp.ClientError:
             print("Bad status code 2")
-    if requestchoice != "":
+    if request_choice != "":
         sampling = random.sample(data["games"], n)
         for i in range(len(sampling)):
             if sampling[i]["description"] != "":
@@ -210,25 +228,25 @@ async def get_n_games(id_category, n):
 
 # определяет какие категории отображать в зависимости от выбранной страницы
 async def category_text(current_page):
-    global requestchoice
+    global request_choice
     l = []
     count = 0
     categories = await get_categories()
-    if requestchoice != "":
+    if request_choice != "":
         for i in categories:
             if count in range((current_page - 1) * 15, current_page * 15 - 1):
                 l.extend(("\n/", i))
             count = count + 1
             text = "".join(l)
-            finaltext = (
-                    "Выберите одну из категорий, которая больше всего нравится. "
-                    "Чтобы выбрать категорию, нажмите на "
-                    "ее название: " + text
+            final_text = (
+                "Выберите одну из категорий, которая больше всего нравится. "
+                "Чтобы выбрать категорию, нажмите на "
+                "ее название: " + text
             )
     else:
-        finaltext = "Хм, кажется, сайт сейчас перегружен, и я не могу получить информацию. Пожалуйста, вернитесь позже"
+        final_text = "Хм, кажется, сайт сейчас перегружен, и я не могу получить информацию. Пожалуйста, вернитесь позже"
 
-    return finaltext
+    return final_text
 
 
 # версия с запросом всех возможных категорий с сайта + запрос игр с сайта (не храним данные про игры)
@@ -237,51 +255,51 @@ async def main_games_query(maintext, *args):
     global choice2
     global choice3
     global delgame_id
-    global requestchoice
+    global request_choice
     if "startmessage" in maintext:
         text = await category_text(1)
-        finaltext = "Привет! " + text
-        return finaltext
+        final_text = "Привет! " + text
+        return final_text
 
     elif "choosegame" in maintext:
         categories = await get_categories()
 
-        if requestchoice != "":
+        if request_choice != "":
             category_id = categories[args[0]]
-            fulltext = ""
-            fulltext2 = ""
-            fulltext3 = ""
+            full_text = ""
+            full_text2 = ""
+            full_text3 = ""
             if (await max_games(category_id)) == 1:
                 chosen = await get_n_games(category_id, 1)
                 a = chosen[0]
                 choice1 = a
-                fulltext = (
-                        "Выберите игру, которая нравится больше всего: \n\n1. <b><u>"
-                        + a["game_name"]
-                        + "</u></b>: \n   "
-                        + a["game_desc"]
+                full_text = (
+                    "Выберите игру, которая нравится больше всего: \n\n1. <b><u>"
+                    + a["game_name"]
+                    + "</u></b>: \n   "
+                    + a["game_desc"]
                 )
-                return fulltext, fulltext2, fulltext3, a["game_name"], "no", "no"
+                return full_text, full_text2, full_text3, a["game_name"], "no", "no"
             elif (await max_games(category_id)) == 2:
                 chosen = await get_n_games(category_id, 2)
                 a = chosen[0]
                 b = chosen[1]
                 choice1 = a
                 choice2 = b
-                fulltext = (
-                        "Выберите игру, которая нравится больше всего: \n\n1. <b><u>"
-                        + a["game_name"]
-                        + "</u></b>: \n   "
-                        + a["game_desc"]
-                        + "\n\n"
+                full_text = (
+                    "Выберите игру, которая нравится больше всего: \n\n1. <b><u>"
+                    + a["game_name"]
+                    + "</u></b>: \n   "
+                    + a["game_desc"]
+                    + "\n\n"
                 )
-                fulltext2 = (
-                        "\2. <b><u>" + b["game_name"] + "</u></b>: \n   " + b["game_desc"]
+                full_text2 = (
+                    "\2. <b><u>" + b["game_name"] + "</u></b>: \n   " + b["game_desc"]
                 )
                 return (
-                    fulltext,
-                    fulltext2,
-                    fulltext3,
+                    full_text,
+                    full_text2,
+                    full_text3,
                     a["game_name"],
                     b["game_name"],
                     "no",
@@ -296,42 +314,42 @@ async def main_games_query(maintext, *args):
                 choice2 = b
                 choice3 = c
 
-                fulltext = ""
-                fulltext = (
-                        "Выберите игру, которая нравится больше всего: \n\n1. <b><u>"
-                        + a["game_name"]
-                        + "</u></b>: \n   "
-                        + a["game_desc"]
-                        + "\n\n"
+                full_text = ""
+                full_text = (
+                    "Выберите игру, которая нравится больше всего: \n\n1. <b><u>"
+                    + a["game_name"]
+                    + "</u></b>: \n   "
+                    + a["game_desc"]
+                    + "\n\n"
                 )
-                fulltext2 = (
-                        "2. <b><u>"
-                        + b["game_name"]
-                        + "</u></b>: \n   "
-                        + b["game_desc"]
-                        + "\n\n"
+                full_text2 = (
+                    "2. <b><u>"
+                    + b["game_name"]
+                    + "</u></b>: \n   "
+                    + b["game_desc"]
+                    + "\n\n"
                 )
-                fulltext3 = (
-                        "3. <b><u>" + c["game_name"] + "</u></b>: \n   " + c["game_desc"]
+                full_text3 = (
+                    "3. <b><u>" + c["game_name"] + "</u></b>: \n   " + c["game_desc"]
                 )
                 return (
-                    fulltext,
-                    fulltext2,
-                    fulltext3,
+                    full_text,
+                    full_text2,
+                    full_text3,
                     a["game_name"],
                     b["game_name"],
                     c["game_name"],
                 )
         else:
-            fulltext = (
+            full_text = (
                 "Хм, кажется, сайт сейчас перегружен, и я не могу получить информацию. "
                 "Пожалуйста, вернитесь позже"
             )
-            return fulltext, "", "", "", "", ""
+            return full_text, "", "", "", "", ""
 
     elif "newgenre" in maintext:
-        finaltext = await category_text(1)
-        return finaltext
+        final_text = await category_text(1)
+        return final_text
 
     elif "end" in maintext:
         return "Спасибо за игру!"
@@ -339,22 +357,24 @@ async def main_games_query(maintext, *args):
     elif "showgames" in maintext:
         gamelist = await show_person(args[0])
         iter = 1
-        fulltext = (
+        full_text = (
             "Для того, чтобы подробнее посмотреть на описание игры, нажмите на ее номер. "
             "\nНа данный момент были сохранены следующие игры:\n\n"
         )
         for item in gamelist:
-            fulltext = fulltext + "/" + str(iter) + ". <b><u>" + item[1] + "</u></b> \n"
+            full_text = (
+                full_text + "/" + str(iter) + ". <b><u>" + item[1] + "</u></b> \n"
+            )
             iter = int(iter) + 1
 
-        return fulltext
+        return full_text
 
     elif "showexactgame" in maintext:
         gamelist = await show_person(args[0])
         game = gamelist[args[1] - 1]
         delgame_id = game[0]
-        fulltext = "<b><u>" + game[1] + "</u></b>: \n \n " + game[2] + "\n"
-        return fulltext
+        full_text = "<b><u>" + game[1] + "</u></b>: \n \n " + game[2] + "\n"
+        return full_text
 
     elif "deletegame" in maintext:
         await del_game(args[0], delgame_id)
@@ -452,129 +472,142 @@ async def func(message):
     user_id = message.from_user.id
     global current_genre
     global tag
-    global requestchoice
+    global request_choice
     name1 = ""
     name2 = ""
     name3 = ""
     text = str(message.text)
-    finaltext = ""
-    finaltext2 = ""
-    finaltext3 = ""
+    final_text2 = ""
+    final_text3 = ""
     if text == "/start":
         text = "Начать"
     if text == "Начать":
         tag = "startmessage"
         current_genre = ""
-        finaltext = await main_games_query(tag)
-        if requestchoice == "":
+        final_text = await main_games_query(tag)
+        if request_choice == "":
             current_genre = ""
             tag = "cantconnect"
     elif "/" in text:
         text = text.replace("/", "")
         if tag == "showgames":
             tag = "showexactgame"
-            finaltext = await main_games_query(tag, user_id, int(text))
+            final_text = await main_games_query(tag, user_id, int(text))
         else:
             tag = "choosegame"
             current_genre = text
-            finaltext, finaltext2, finaltext3, name1, name2, name3 = await main_games_query(
-                tag, current_genre
-            )
-            if requestchoice == "":
+            (
+                final_text,
+                final_text2,
+                final_text3,
+                name1,
+                name2,
+                name3,
+            ) = await main_games_query(tag, current_genre)
+            if request_choice == "":
                 current_genre = ""
                 tag = "cantconnect"
     elif text == "Показать еще игры":
         tag = "choosegame"
-        finaltext, finaltext2, finaltext3, name1, name2, name3 = await main_games_query(
-            tag, current_genre
-        )
-        if requestchoice == "":
+        (
+            final_text,
+            final_text2,
+            final_text3,
+            name1,
+            name2,
+            name3,
+        ) = await main_games_query(tag, current_genre)
+        if request_choice == "":
             current_genre = ""
             tag = "cantconnect"
     elif text == "Выбрать жанр":
         tag = "newgenre"
         current_genre = ""
-        finaltext = await main_games_query(tag)
-        if requestchoice == "":
+        final_text = await main_games_query(tag)
+        if request_choice == "":
             current_genre = ""
             tag = "cantconnect"
     elif text == "Завершить сеанс":
         tag = "end"
         current_genre = ""
-        finaltext = await main_games_query(tag)
+        final_text = await main_games_query(tag)
     elif text == "Показать сохраненные игры":
         tag = "showgames"
-        finaltext = await main_games_query(tag, user_id)
+        final_text = await main_games_query(tag, user_id)
 
     elif text == "Удалить игру":
         tag = "deletegame"
-        finaltext = await main_games_query(tag, user_id)
+        final_text = await main_games_query(tag, user_id)
     else:
         tag = "savegame"
-        finaltext = await main_games_query(tag, text, current_genre, user_id)
+        final_text = await main_games_query(tag, text, current_genre, user_id)
         current_genre = ""
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    btn1 = types.KeyboardButton("Завершить сеанс")
-    btn3 = types.KeyboardButton("Выбрать жанр")
-    btn4 = types.KeyboardButton(name1)
-    btn5 = types.KeyboardButton(name2)
-    btn6 = types.KeyboardButton(name3)
-    btn7 = types.KeyboardButton("Показать еще игры")
-    btn8 = types.KeyboardButton("Показать сохраненные игры")
-    btn9 = types.KeyboardButton("Удалить игру")
+    btn_stop = types.KeyboardButton("Завершить сеанс")
+    btn_choose_genre = types.KeyboardButton("Выбрать жанр")
+    btn_game1 = types.KeyboardButton(name1)
+    btn_game2 = types.KeyboardButton(name2)
+    btn_game3 = types.KeyboardButton(name3)
+    btn_show_more = types.KeyboardButton("Показать еще игры")
+    btn_show_saved = types.KeyboardButton("Показать сохраненные игры")
+    btn_remove_saved = types.KeyboardButton("Удалить игру")
 
     saved_games = await show_person(user_id)
 
     if text != "Завершить сеанс":
         if tag == "showexactgame":
-            markup.add(btn9)
+            markup.add(btn_remove_saved)
         if current_genre != "":
-            markup.add(btn4)
+            markup.add(btn_game1)
             if name2 != "no":
-                markup.add(btn5)
+                markup.add(btn_game2)
             if name3 != "no":
-                markup.add(btn6)
-            markup.add(btn7, btn3)
+                markup.add(btn_game3)
+            markup.add(btn_show_more, btn_choose_genre)
         elif text != "Начать":
-            markup.add(btn3)
+            markup.add(btn_choose_genre)
         if len(saved_games) > 0:
-            markup.add(btn8)
-        markup.add(btn1)
+            markup.add(btn_show_saved)
+        markup.add(btn_stop)
     else:
-        markup.add(btn3)
+        markup.add(btn_choose_genre)
         if len(saved_games) > 0:
-            markup.add(btn8)
+            markup.add(btn_show_saved)
     if tag == "startmessage":
-        await bot.send_message(message.chat.id, finaltext, reply_markup=catkb_markup(1))
+        await bot.send_message(
+            message.chat.id, final_text, reply_markup=catkb_markup(1)
+        )
     elif tag == "newgenre":
-        await bot.send_message(message.chat.id, finaltext, reply_markup=catkb_markup(1))
+        await bot.send_message(
+            message.chat.id, final_text, reply_markup=catkb_markup(1)
+        )
     else:
-        if len(str(finaltext) + str(finaltext2) + str(finaltext3)) > 4096:
-            if len(str(finaltext) + str(finaltext2)) > 4096:
-                if len(str(finaltext)) < 4096:
+        if len(str(final_text) + str(final_text2) + str(final_text3)) >= 4096:
+            if len(str(final_text) + str(final_text2)) >= 4096:
+                if len(str(final_text)) < 4096:
                     await bot.send_message(
                         message.chat.id,
-                        finaltext,
+                        final_text,
                         reply_markup=markup,
                     )
                 else:
-                    splitted_text = util.smart_split(finaltext, chars_per_string=3000)
+                    splitted_text = util.smart_split(final_text, chars_per_string=3000)
                     for text in splitted_text:
                         await bot.send_message(
                             message.chat.id,
                             text,
                             reply_markup=markup,
                         )
-                if finaltext2 != "":
-                    if len(str(finaltext2)) < 4096:
+                if final_text2 != "":
+                    if len(str(final_text2)) < 4096:
                         await bot.send_message(
                             message.chat.id,
-                            finaltext2,
+                            final_text2,
                             reply_markup=markup,
                         )
                     else:
                         splitted_text = util.smart_split(
-                            finaltext2, chars_per_string=3000
+                            final_text2, chars_per_string=3000
                         )
                         for text in splitted_text:
                             await bot.send_message(
@@ -582,16 +615,16 @@ async def func(message):
                                 text,
                                 reply_markup=markup,
                             )
-                if finaltext3 != "":
-                    if len(str(finaltext3)) < 4096:
+                if final_text3 != "":
+                    if len(str(final_text3)) < 4096:
                         await bot.send_message(
                             message.chat.id,
-                            finaltext3,
+                            final_text3,
                             reply_markup=markup,
                         )
                     else:
                         splitted_text = util.smart_split(
-                            finaltext3, chars_per_string=3000
+                            final_text3, chars_per_string=3000
                         )
                         for text in splitted_text:
                             await bot.send_message(
@@ -603,20 +636,21 @@ async def func(message):
             else:
                 await bot.send_message(
                     message.chat.id,
-                    finaltext + finaltext2,
+                    final_text + final_text2,
                     reply_markup=markup,
                 )
-                if finaltext3 != "":
+                if final_text3 != "":
                     await bot.send_message(
                         message.chat.id,
-                        finaltext3,
+                        final_text3,
                         reply_markup=markup,
                     )
         else:
             await bot.send_message(
                 message.chat.id,
-                finaltext + finaltext2 + finaltext3,
+                final_text + final_text2 + final_text3,
                 reply_markup=markup,
             )
+
 
 asyncio.run(bot.polling())
