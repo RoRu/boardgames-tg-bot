@@ -6,13 +6,14 @@ import sqlite3
 import requests
 import telebot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from envparse import env
 from requests_cache import CachedSession
 from telebot import types
 from telebot import util
 
 # путь к файлу базы
 
-db_filepath = "./db.sqlite3"
+db_filepath = env.str("DB_PATH", default='./db.sqlite3')
 
 # создаем таблицу, если она еще не существует.
 # в таблице: id чата пользователя, id игры с сайта, имя игры, описание, жанр и дата добавления
@@ -38,6 +39,10 @@ req_session = CachedSession(
     allowable_methods="GET",
     stale_if_error=True,
 )
+base_api = "https://api.boardgameatlas.com/api"
+base_api_token = env.str("API_TOKEN")
+fallback_api = "https://www.boardgameatlas.com/api"
+fallback_api_token = "W0AQGbjlZE"
 
 
 # добавление игры определенного пользователя в базу
@@ -78,7 +83,7 @@ def del_game(cur_chat_id, cur_game_id):
 """# **Бот**"""
 
 bot = telebot.TeleBot(
-    "5689879860:AAEkJEYdAQ1K3gzVWxMjXfLg0OJq3pK50KY", parse_mode="html"
+    env.str("BOT_TOKEN"), parse_mode="html"
 )
 current_genre = ""
 delgame_id = ""
@@ -101,23 +106,23 @@ def get_categories():
 
     try:
         r = req_session.get(
-            "https://api.boardgameatlas.com/api/game/categories?client_id=IhRam6jmDV"
+            f"{base_api}/game/categories?client_id=IhRam6jmDV"
         )
         r.raise_for_status()
         data = r.json()
         requestchoice = str(1)
-    except requests.exceptions.RequestException as err:
+    except requests.exceptions.RequestException:
         print("Bad status code 1")
 
     if requestchoice == "":
         try:
             r = req_session.get(
-                "https://www.boardgameatlas.com/api/game/categories?client_id=W0AQGbjlZE"
+                f"{fallback_api}/game/categories?client_id={fallback_api_token}"
             )
             r.raise_for_status()
             data = r.json()
             requestchoice = str(2)
-        except requests.exceptions.RequestException as err:
+        except requests.exceptions.RequestException:
             print("Bad status code 2")
 
     if requestchoice != "":
@@ -138,9 +143,9 @@ def max_games(id_category):
 
     try:
         r = req_session.get(
-            "https://api.boardgameatlas.com/api/search?categories="
+            f"{base_api}/search?categories="
             + str(id_category)
-            + "&client_id=IhRam6jmDV"
+            + f"&client_id={base_api_token}"
         )
         r.raise_for_status()
         data = {"games": [], "count": 0}
@@ -148,15 +153,15 @@ def max_games(id_category):
         while not data["games"]:
             data = r.json()
         requestchoice = str(1)
-    except requests.exceptions.RequestException as err:
+    except requests.exceptions.RequestException:
         print("Bad status code 1")
 
     if requestchoice == "":
         try:
             r = req_session.get(
-                "https://www.boardgameatlas.com/api/search?categories="
+                f"{fallback_api}/search?categories="
                 + str(id_category)
-                + "&client_id=W0AQGbjlZE"
+                + f"&client_id={fallback_api_token}"
             )
             r.raise_for_status()
             data = {"games": [], "count": 0}
@@ -164,7 +169,7 @@ def max_games(id_category):
             while not data["games"]:
                 data = r.json()
             requestchoice = str(2)
-        except requests.exceptions.RequestException as err:
+        except requests.exceptions.RequestException:
             print("Bad status code 2")
 
     if requestchoice != "":
@@ -180,9 +185,9 @@ def get_n_games(id_category, n):
 
     try:
         r = req_session.get(
-            "https://api.boardgameatlas.com/api/search?categories="
+            f"{base_api}/search?categories="
             + str(id_category)
-            + "&client_id=IhRam6jmDV"
+            + f"&client_id={base_api_token}"
         )
         r.raise_for_status()
         data = {"games": [], "count": 0}
@@ -196,9 +201,9 @@ def get_n_games(id_category, n):
     if requestchoice == "":
         try:
             r = req_session.get(
-                "https://www.boardgameatlas.com/api/search?categories="
+                f"{fallback_api}/search?categories="
                 + str(id_category)
-                + "&client_id=W0AQGbjlZE"
+                + f"&client_id={fallback_api_token}"
             )
             r.raise_for_status()
             data = {"games": [], "count": 0}
