@@ -1,11 +1,21 @@
+import datetime
+import random
+import re
 import sqlite3
-import sqlite3
+
+import requests
+import telebot
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from requests_cache import CachedSession
+from telebot import types
+from telebot import util
 
 # путь к файлу базы
 
-db_filepath = "/content/db.sqlite3"
+db_filepath = "./db.sqlite3"
 
-# создаем таблицу, если она еще не существует. в таблице: id чата пользователя, id игры с сайта, имя игры, описание, жанр и дата добавления
+# создаем таблицу, если она еще не существует.
+# в таблице: id чата пользователя, id игры с сайта, имя игры, описание, жанр и дата добавления
 con = sqlite3.connect(db_filepath)
 cur = con.cursor()
 gametable_sql = """
@@ -20,11 +30,17 @@ gametable_sql = """
 
 cur.execute(gametable_sql)
 con.close()
+req_session = CachedSession(
+    "db.sqlite3",
+    backend="sqlite",
+    serializer="json",
+    allowable_codes=(200,),
+    allowable_methods=("GET"),
+    stale_if_error=True,
+)
 
 
 # добавление игры определенного пользователя в базу
-
-
 def add_tuple(chat_id, game_id, game_name, game_desc, game_genre):
     con = sqlite3.connect(db_filepath)
     cur = con.cursor()
@@ -38,8 +54,6 @@ def add_tuple(chat_id, game_id, game_name, game_desc, game_genre):
 
 
 # выгрузка сохраненных игр определенного пользователя
-
-
 def show_person(cur_chat_id):
     con = sqlite3.connect(db_filepath)
     cur = con.cursor()
@@ -49,23 +63,7 @@ def show_person(cur_chat_id):
     con.close()
     return results
 
-
-# выгрузка только названий игр
-
-
-def show_gamenames(cur_chat_id):
-    con = sqlite3.connect(db_filepath)
-    cur = con.cursor()
-    getperson_sql = "SELECT game_id, game_name FROM saved_games WHERE chat_id=?"
-    cur.execute(getperson_sql, (cur_chat_id,))
-    results = cur.fetchall()
-    con.close()
-    return results
-
-
 # удаление игры из базы для определенного пользователя
-
-
 def del_game(cur_chat_id, cur_game_id):
     con = sqlite3.connect(db_filepath)
     cur = con.cursor()
@@ -77,17 +75,9 @@ def del_game(cur_chat_id, cur_game_id):
 
 """# **Бот**"""
 
-import random
-import json
-import telebot
-import re
-from telebot import types
-from telebot import util
-import requests
-
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-bot = telebot.TeleBot("5689879860:AAEkJEYdAQ1K3gzVWxMjXfLg0OJq3pK50KY")
+bot = telebot.TeleBot(
+    "5689879860:AAEkJEYdAQ1K3gzVWxMjXfLg0OJq3pK50KY", parse_mode="html"
+)
 current_genre = ""
 delgame_id = ""
 tag = ""
@@ -103,37 +93,27 @@ choice3 = ["", "", ""]
 
 
 # в первом try/catch свой client_id для поступа к api, во втором общий client_id к основному сайту
-
-
 def get_categories():
     global requestchoice
     global data
 
     try:
-        r = requests.get(
+        r = req_session.get(
             "https://api.boardgameatlas.com/api/game/categories?client_id=IhRam6jmDV"
         )
         r.raise_for_status()
-        link = "https://api.boardgameatlas.com/api/game/categories?client_id=IhRam6jmDV"
-        from urllib.request import urlopen
-
-        with urlopen(link) as read_file:
-            data = json.load(read_file)
+        data = r.json()
         requestchoice = str(1)
     except requests.exceptions.RequestException as err:
         print("Bad status code 1")
 
     if requestchoice == "":
         try:
-            r = requests.get(
+            r = req_session.get(
                 "https://www.boardgameatlas.com/api/game/categories?client_id=W0AQGbjlZE"
             )
             r.raise_for_status()
-            link = "https://www.boardgameatlas.com/api/game/categories?client_id=W0AQGbjlZE"
-            from urllib.request import urlopen
-
-            with urlopen(link) as read_file:
-                data = json.load(read_file)
+            data = r.json()
             requestchoice = str(2)
         except requests.exceptions.RequestException as err:
             print("Bad status code 2")
@@ -146,8 +126,8 @@ def get_categories():
         data_ids = {x.replace("&", "and"): v for x, v in data_ids.items()}
         data_ids = {x.replace("'", ""): v for x, v in data_ids.items()}
         return data_ids
-    else:
-        return data
+
+    return data
 
 
 def max_games(id_category):
@@ -155,56 +135,40 @@ def max_games(id_category):
     global requestchoice
 
     try:
-        r = requests.get(
+        r = req_session.get(
             "https://api.boardgameatlas.com/api/search?categories="
             + str(id_category)
             + "&client_id=IhRam6jmDV"
         )
         r.raise_for_status()
-        link = (
-            "https://api.boardgameatlas.com/api/search?categories="
-            + str(id_category)
-            + "&client_id=IhRam6jmDV"
-        )
         data = {"games": [], "count": 0}
 
-        while data["games"] == []:
-            from urllib.request import urlopen
-
-            with urlopen(link) as read_file:
-                data = json.load(read_file)
+        while not data["games"]:
+            data = r.json()
         requestchoice = str(1)
     except requests.exceptions.RequestException as err:
         print("Bad status code 1")
 
     if requestchoice == "":
         try:
-            r = requests.get(
+            r = req_session.get(
                 "https://www.boardgameatlas.com/api/search?categories="
                 + str(id_category)
                 + "&client_id=W0AQGbjlZE"
             )
             r.raise_for_status()
-            link = (
-                "https://www.boardgameatlas.com/api/search?categories="
-                + str(id_category)
-                + "&client_id=W0AQGbjlZE"
-            )
             data = {"games": [], "count": 0}
 
-            while data["games"] == []:
-                from urllib.request import urlopen
-
-                with urlopen(link) as read_file:
-                    data = json.load(read_file)
+            while not data["games"]:
+                data = r.json()
             requestchoice = str(2)
         except requests.exceptions.RequestException as err:
             print("Bad status code 2")
 
     if requestchoice != "":
         return len(data["games"])
-    else:
-        return 0
+
+    return 0
 
 
 def get_n_games(id_category, n):
@@ -213,50 +177,34 @@ def get_n_games(id_category, n):
     global requestchoice
 
     try:
-        r = requests.get(
+        r = req_session.get(
             "https://api.boardgameatlas.com/api/search?categories="
             + str(id_category)
             + "&client_id=IhRam6jmDV"
         )
         r.raise_for_status()
-        link = (
-            "https://api.boardgameatlas.com/api/search?categories="
-            + str(id_category)
-            + "&client_id=IhRam6jmDV"
-        )
         data = {"games": [], "count": 0}
 
-        while data["games"] == []:
-            from urllib.request import urlopen
-
-            with urlopen(link) as read_file:
-                data = json.load(read_file)
+        while not data["games"]:
+            data = r.json()
         requestchoice = str(1)
-    except requests.exceptions.RequestException as err:
+    except requests.exceptions.RequestException:
         print("Bad status code 1")
 
     if requestchoice == "":
         try:
-            r = requests.get(
+            r = req_session.get(
                 "https://www.boardgameatlas.com/api/search?categories="
                 + str(id_category)
                 + "&client_id=W0AQGbjlZE"
             )
             r.raise_for_status()
-            link = (
-                "https://www.boardgameatlas.com/api/search?categories="
-                + str(id_category)
-                + "&client_id=W0AQGbjlZE"
-            )
             data = {"games": [], "count": 0}
 
-            while data["games"] == []:
-                from urllib.request import urlopen
-
-                with urlopen(link) as read_file:
-                    data = json.load(read_file)
+            while not data["games"]:
+                data = r.json()
             requestchoice = str(2)
-        except requests.exceptions.RequestException as err:
+        except requests.exceptions.RequestException:
             print("Bad status code 2")
     if requestchoice != "":
         sampling = random.sample(data["games"], n)
@@ -282,8 +230,6 @@ def get_n_games(id_category, n):
 
 
 # определяет какие категории отображать в зависимости от выбранной страницы
-
-
 def category_text(current_page):
     global requestchoice
     l = []
@@ -292,8 +238,7 @@ def category_text(current_page):
     if requestchoice != "":
         for i in categories:
             if count in range((current_page - 1) * 15, current_page * 15 - 1):
-                l.append("\n/")
-                l.append(i)
+                l.extend(("\n/", i))
             count = count + 1
             text = "".join(l)
             finaltext = (
@@ -307,8 +252,6 @@ def category_text(current_page):
 
 
 # версия с запросом всех возможных категорий с сайта + запрос игр с сайта (не храним данные про игры)
-
-
 def main_games_query(maintext, *args):
     global choice1
     global choice2
@@ -466,8 +409,6 @@ def main_games_query(maintext, *args):
 
 
 # определяет, какую инлайн клавиатуру рисовать в обновленном сообщении для списка
-
-
 def catkb_markup(current_place):
     markup = InlineKeyboardMarkup()
     markup.row_width = 5
@@ -523,8 +464,6 @@ def catkb_markup(current_place):
 
 
 # изменение сообщения при выборе страницы на инлайн клавиатуре
-
-
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     if call.data == "cat1":
@@ -741,7 +680,6 @@ def func(message):
                         message.chat.id,
                         finaltext,
                         reply_markup=markup,
-                        parse_mode="html",
                     )
                 else:
                     splitted_text = util.smart_split(finaltext, chars_per_string=3000)
@@ -750,7 +688,6 @@ def func(message):
                             message.chat.id,
                             text,
                             reply_markup=markup,
-                            parse_mode="html",
                         )
                 if finaltext2 != "":
                     if len(str(finaltext2)) < 4096:
@@ -758,7 +695,6 @@ def func(message):
                             message.chat.id,
                             finaltext2,
                             reply_markup=markup,
-                            parse_mode="html",
                         )
                     else:
                         splitted_text = util.smart_split(
@@ -769,7 +705,6 @@ def func(message):
                                 message.chat.id,
                                 text,
                                 reply_markup=markup,
-                                parse_mode="html",
                             )
                 if finaltext3 != "":
                     if len(str(finaltext3)) < 4096:
@@ -777,7 +712,6 @@ def func(message):
                             message.chat.id,
                             finaltext3,
                             reply_markup=markup,
-                            parse_mode="html",
                         )
                     else:
                         splitted_text = util.smart_split(
@@ -788,7 +722,6 @@ def func(message):
                                 message.chat.id,
                                 text,
                                 reply_markup=markup,
-                                parse_mode="html",
                             )
 
             else:
@@ -796,21 +729,18 @@ def func(message):
                     message.chat.id,
                     finaltext + finaltext2,
                     reply_markup=markup,
-                    parse_mode="html",
                 )
                 if finaltext3 != "":
                     bot.send_message(
                         message.chat.id,
                         finaltext3,
                         reply_markup=markup,
-                        parse_mode="html",
                     )
         else:
             bot.send_message(
                 message.chat.id,
                 finaltext + finaltext2 + finaltext3,
                 reply_markup=markup,
-                parse_mode="html",
             )
 
 
